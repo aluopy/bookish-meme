@@ -1,0 +1,12 @@
+version: "2.2"
+
+services:
+  cerebro:
+     image: lmenezes/cerebro
+     hostname: mysql
+     container_name: cerebro
+     restart: always
+     command:
+     - -Dplay.ws.ssl.loose.acceptAnyCertificate=true
+     ports:
+      - 9000:9000

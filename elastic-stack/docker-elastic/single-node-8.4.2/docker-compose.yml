@@ -2,7 +2,7 @@ version: "2.2"
 
 services:
   setup:
-    image: registry.cn-shenzhen.aliyuncs.com/aluo/elasticsearch:${STACK_VERSION}
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
     user: "0"
@@ -47,7 +47,7 @@ services:
         echo "Waiting for Elasticsearch availability";
         until curl -s --cacert config/certs/ca/ca.crt https://elasticsearch:9200 | grep -q "missing authentication credentials"; do sleep 30; done;
         echo "Setting kibana_system password";
-        until curl -s -X POST --cacert config/certs/ca/ca.crt -u elastic:${ELASTIC_PASSWORD} -H "Content-Type: application/json" https://elasticsearch:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do sleep 10; done;
+        until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" https://elasticsearch:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do sleep 10; done;
         echo "All done!";
       '
     healthcheck:
@@ -60,11 +60,11 @@ services:
     depends_on:
       setup:
         condition: service_healthy
-    image: registry.cn-shenzhen.aliyuncs.com/aluo/elasticsearch:${STACK_VERSION}
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
     volumes:
       #- ./elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
       - certs:/usr/share/elasticsearch/config/certs
-      - esdata:/usr/share/elasticsearch/data
+      - esdata01:/usr/share/elasticsearch/data
     ports:
       - ${ES_PORT}:9200
     environment:
@@ -105,7 +105,7 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-    image: registry.cn-shenzhen.aliyuncs.com/aluo/kibana:${STACK_VERSION}
+    image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
     volumes:
       #- ./kibana.yml:/usr/share/kibana/config/kibana.yml
       - certs:/usr/share/kibana/config/certs
@@ -129,45 +129,14 @@ services:
       timeout: 10s
       retries: 120
 
-  filebeat:
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-      kibana:
-        condition: service_healthy
-    image: registry.cn-shenzhen.aliyuncs.com/aluo/filebeat:${STACK_VERSION}
-    restart: always
-    # -e flag to log to stderr and disable syslog/file output
-    command: -e --strict.perms=false
-    user: root
-    ports:
-      - 5066:5066
-    environment:
-      ELASTIC_USERNAME: elastic
-      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
-      KIBANA_HOST_PORT: https://kibana:5601
-      ELASTICSEARCH_HOST_PORT: https://elasticsearch:9200
-    volumes:
-      - ./filebeat.docker.logs.yml:/usr/share/filebeat/filebeat.yml:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - filebeatdata:/var/lib/filebeat/data
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "curl -s -I http://localhost:5066/stats | grep -q 'HTTP/1.1 200 OK'",
-        ]
-      interval: 10s
-      timeout: 10s
-      retries: 120
-
 volumes:
   certs:
     driver: local
-  esdata:
+  esdata01:
+    driver: local
+  esdata02:
+    driver: local
+  esdata03:
     driver: local
   kibanadata:
-    driver: local
-  filebeatdata:
     driver: local
