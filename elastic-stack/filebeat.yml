@@ -1,0 +1,112 @@
+# Filebeat inputs
+filebeat.inputs:
+- type: filestream
+  enabled: true
+  id: test-dissect
+  #index: test-dissect
+  paths:
+    - /tmp/test.log
+    #- /tmp/test1.log
+  processors:
+  - drop_fields:
+      fields: ["ecs", "agent", "log", "input", "host", "message"]
+  - dissect:
+      tokenizer: '"%{pid|integer} - %{name} - %{status}"'
+      field: "message"
+      target_prefix: ""
+
+- type: filestream
+  enabled: false
+  id: a9kpfw-1
+  index: a9kpfw-1
+  # set top-level fields
+  fields:
+    env: a9kpfw-1
+  fields_under_root: true
+  # set tags
+  #tags: ["a9kpfw-1", "k8s", "prod"]
+  paths:
+    - /home/aisino/a9kpfw-logs/a9kpfw-1-0/zzs_kpfw_info*.log
+    - /home/aisino/a9kpfw-logs/a9kpfw-1-1/zzs_kpfw_info*.log
+    - /home/aisino/a9kpfw-logs/a9kpfw-1-2/zzs_kpfw_info*.log
+  parsers:
+  - multiline:
+      type: pattern
+      pattern: '^\[[0-9]{2}-[0-9]{2}-[0-9]{4}'
+      negate: true
+      match: after
+
+
+- type: filestream
+  enabled: false
+  id: a9kpfw-2
+  index: a9kpfw-2
+  fields:
+    source: a9kpfw-2
+  fields_under_root: true
+  paths:
+    - /home/aisino/a9kpfw-logs/a9kpfw-2-0/zzs_kpfw_info*.log
+    - /home/aisino/a9kpfw-logs/a9kpfw-2-1/zzs_kpfw_info*.log
+    - /home/aisino/a9kpfw-logs/a9kpfw-2-2/zzs_kpfw_info*.log
+  parsers:
+  - multiline:
+      type: pattern
+      pattern: '^\[[0-9]{2}-[0-9]{2}-[0-9]{4}'
+      negate: true
+      match: after
+
+
+# Elasticsearch Output
+output.elasticsearch:
+  hosts: ["https://192.168.30.30:9200"]
+  username: "${ES_USER}"
+  password: "${ES_PWD}"
+  ssl.certificate_authorities: ["/opt/filebeat-8.4.1-linux-x86_64/ca.crt"]
+  #index: "%{[fields.source]}-%{[agent.version]}-%{+yyyy.MM.dd}"
+  #indices:
+  #  - index: "a9kpfw-1-%{[agent.version]}-%{+yyyy.MM.dd}"
+  #    when.equals:
+  #      source: "a9kpfw-1"
+  #  - index: "a9kpfw-2-%{[agent.version]}-%{+yyyy.MM.dd}"
+  #    when.equals:
+  #      source: "a9kpfw-2" 
+
+
+# Kibana
+setup.kibana:
+  host: "https://192.168.30.30:5601"
+  username: ${ES_USER}
+  password: ${ES_PWD}
+
+
+# Filebeat modules
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: false
+  # Period on which files under path should be checked for changes
+  #reload.period: 10s
+
+
+# Elasticsearch template setting
+setup.template.name: "a9kpfw"
+setup.template.pattern: "a9kpfw-*"
+setup.template.fields: "fields.yml"
+setup.template.enabled: true
+setup.template.settings:
+  index.number_of_shards: 1
+  index.number_of_replicas: 1
+  #index.codec: best_compression
+  #_source.enabled: false
+setup.template.overwrite: false
+setup.ilm.enabled: false
+
+
+# Processors
+#processors:
+  #- drop_fields:
+  #    fields: ["ecs", "agent", "log", "input", "host"]
+  #- dissect:
+      #tokenizer: '"%{?service.time1} %{?service.time2} %{?service.jsppool} %{service.level}  %{service.name}"'
+  #    tokenizer: '"[%{timestamp}] [%{thread}] %{level} %{logger}(%{file}:%{line}) - %{+msg}"'
+  #    field: "message"
+  #    target_prefix: ""

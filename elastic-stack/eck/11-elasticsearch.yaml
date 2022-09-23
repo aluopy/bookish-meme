@@ -1,0 +1,168 @@
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: elastk8s
+  namespace: elastic-system
+  annotations:
+    eck.k8s.elastic.co/downward-node-labels: "topology.kubernetes.io/zone"
+spec:
+  version: 8.4.1
+  auth:
+    fileRealm:
+    - secretName: secret-basic-auth
+  # DeleteOnScaledownAndClusterDeletion(default): all pvc are deleted together with the es cluster
+  # DeleteOnScaledownOnly: keeps the pvc when deleting the es cluster
+  volumeClaimDeletePolicy: DeleteOnScaledownOnly
+  updateStrategy:
+    changeBudget:
+      maxSurge: -1
+      maxUnavailable: 1
+  podDisruptionBudget:
+    spec:
+      minAvailable: 2
+      selector:
+        matchLabels:
+          elasticsearch.k8s.elastic.co/cluster-name: elastk8s
+  http:
+    service:
+      spec:
+        type: LoadBalancer # default is ClusterIP
+        loadBalancerIP: 192.168.30.30
+  nodeSets:
+  # 1 dedicated master node
+  - name: master
+    count: 1
+    config:
+      node.roles: ["master"]
+      xpack.ml.enabled: false
+      node.store.allow_mmap: false
+      cluster.routing.allocation.awareness.attributes: k8s_node_name,zone
+      node.attr.zone: ${ZONE}
+    podTemplate:
+      spec:
+        #initContainers:
+        #- name: sysctl
+        #  securityContext:
+        #    privileged: true
+        #    runAsUser: 0
+        #  command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+        containers:
+        - name: elasticsearch
+          resources:
+            limits:
+              memory: 8Gi
+              cpu: 2
+          env:
+          - name: ZONE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.annotations['topology.kubernetes.io/zone']
+          - name: ES_JAVA_OPTS
+            value: "-Xms2g -Xmx2g"
+        affinity:
+          podAntiAffinity:
+            #requiredDuringSchedulingIgnoredDuringExecution:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    elasticsearch.k8s.elastic.co/cluster-name: elastk8s
+                topologyKey: kubernetes.io/hostname
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: topology.kubernetes.io/zone
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                elasticsearch.k8s.elastic.co/cluster-name: elastk8s
+                elasticsearch.k8s.elastic.co/statefulset-name: elastk8s-es-default
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data # Do not change this name unless you set up a volume mount for the data path.
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 50Gi
+        storageClassName: aisino-sc
+  # 3 ingest-data nodes
+  - name: data
+    count: 3
+    config:
+      node.roles: ["data", "ingest"]
+      xpack.ml.enabled: false
+      node.store.allow_mmap: false
+      cluster.routing.allocation.awareness.attributes: k8s_node_name,zone
+      node.attr.zone: ${ZONE}
+    podTemplate:
+      spec:
+        #initContainers:
+        #- name: sysctl
+        #  securityContext:
+        #    privileged: true
+        #    runAsUser: 0
+        #  command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+        containers:
+        - name: elasticsearch
+          resources:
+            limits:
+              memory: 8Gi
+              cpu: 2
+          env:
+          - name: ZONE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.annotations['topology.kubernetes.io/zone']
+          - name: ES_JAVA_OPTS
+            value: "-Xms2g -Xmx2g"
+        affinity:
+          podAntiAffinity:
+            #requiredDuringSchedulingIgnoredDuringExecution:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    elasticsearch.k8s.elastic.co/cluster-name: elastk8s
+                topologyKey: kubernetes.io/hostname
+          #nodeAffinity:
+          #  requiredDuringSchedulingIgnoredDuringExecution:
+          #    nodeSelectorTerms:
+          #    - matchExpressions:
+          #      - key: environment
+          #        operator: In
+          #        values:
+          #        - e2e
+          #        - production
+          #  preferredDuringSchedulingIgnoredDuringExecution:
+          #    - weight: 1
+          #      preference:
+          #        matchExpressions:
+          #        - key: diskType
+          #          operator: In
+          #          values:
+          #          - ssd
+        # 
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: topology.kubernetes.io/zone
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                elasticsearch.k8s.elastic.co/cluster-name: elastk8s
+                elasticsearch.k8s.elastic.co/statefulset-name: elastk8s-es-default
+        #nodeSelector:
+        #  diskType: ssd
+        #  environment: production
+    volumeClaimTemplates:
+    - metadata:
+        name: elasticsearch-data # Do not change this name unless you set up a volume mount for the data path.
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 500Gi
+        storageClassName: aisino-sc

@@ -1,0 +1,34 @@
+## Default Elasticsearch configuration from Elasticsearch base image.
+## https://github.com/elastic/elasticsearch/blob/master/distribution/docker/src/docker/config/elasticsearch.yml
+#
+cluster.name: ${CLUSTER_NAME}
+node.name:    ${NODE_NAME}
+network.host: 0.0.0.0
+transport.host: 0.0.0.0
+
+## Cluster Settings
+discovery.seed_hosts: ${DISCOVERY_SEEDS_HOSTS}
+cluster.initial_master_nodes: ${INIT_MASTER_NODE}
+
+## License
+xpack.license.self_generated.type: ${LICENSE}
+
+# Security
+xpack.security.enabled: true
+
+## - ssl
+xpack.security.transport.ssl.enabled: true
+xpack.security.transport.ssl.verification_mode: certificate
+xpack.security.transport.ssl.key: certs/elasticsearch/elasticsearch.key
+xpack.security.transport.ssl.certificate: certs/elasticsearch/elasticsearch.crt
+xpack.security.transport.ssl.certificate_authorities: certs/ca.crt
+
+## - http
+xpack.security.http.ssl.enabled: true
+xpack.security.http.ssl.key: certs/elasticsearch/elasticsearch.key
+xpack.security.http.ssl.certificate: certs/elasticsearch/elasticsearch.crt
+xpack.security.http.ssl.certificate_authorities: certs/ca.crt
+xpack.security.http.ssl.client_authentication: optional
+
+# Monitoring
+xpack.monitoring.collection.enabled: true

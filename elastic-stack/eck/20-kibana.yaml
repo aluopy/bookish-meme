@@ -1,0 +1,38 @@
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: elastk8s
+  namespace: elastic-system
+spec:
+  version: 8.4.1
+  count: 1
+  elasticsearchRef:
+    name: elastk8s
+    namespace: elastic-system
+  config:
+     elasticsearch.requestHeadersWhitelist:
+     - authorization
+  podTemplate:
+    spec:
+      containers:
+      - name: kibana
+        env:
+          - name: NODE_OPTIONS
+            value: "--max-old-space-size=2048"
+        resources:
+          requests:
+            memory: 1Gi
+            cpu: 0.5
+          limits:
+            memory: 2.5Gi
+            cpu: 2
+      #nodeSelector:
+      #  type: frontend
+  http:
+    service:
+      spec:
+        type: LoadBalancer # default is ClusterIP
+        loadBalancerIP: 192.168.30.30
+    #tls:
+    #  certificate:
+    #    secretName: http-tls-ca-cert

@@ -1,0 +1,33 @@
+name: filebeat-docker-logs-shipper
+
+filebeat.config:
+  modules:
+    path: ${path.config}/modules.d/*.yml
+    reload.enabled: false
+
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      templates:
+        - condition:
+            and:
+             - not.contains:
+                docker.container.image: elasticsearch
+             - not.contains:
+                docker.container.image: logstash
+             - not.contains:
+                docker.container.image: kibana
+          config:
+            - type: container
+              paths:
+                - /var/lib/docker/containers/${data.docker.container.id}/*.log
+
+processors:
+- add_cloud_metadata: ~
+
+setup.kibana.host: "kibana:5601"
+
+output.elasticsearch:
+  hosts: 'es01:9200'
+  username: 'elastic'
+  password: 'elastic'
